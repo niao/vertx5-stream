@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vert.x Stream Demo</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        padding: 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+        background: #f5f5f5;
+    }
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .btn {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 4px;
+        transition: background 0.3s;
+    }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-primary:hover { background: #0056b3; }
+    .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-secondary:hover { background: #545b62; }
+
+    .status {
+        padding: 15px;
+        background: #e7f3ff;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        border-left: 4px solid #007bff;
+    }
+
+    .progress-container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: #e0e0e0;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745, #20c997);
+        width: 0%;
+        transition: width 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 10px;
+        color: white;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .stat-card {
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stat-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: #007bff;
+    }
+    .stat-label {
+        font-size: 13px;
+        color: #666;
+        margin-top: 5px;
+    }
+
+    /* Таблица */
+    .table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    .table-header {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-bottom: 2px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .table-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+    }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .data-table th {
+        background: #f8f9fa;
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 0;
+    }
+    .data-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #dee2e6;
+        color: #212529;
+    }
+    .data-table tr:hover {
+        background: #f8f9fa;
+    }
+    .data-table tr:nth-child(even) {
+        background: #fafafa;
+    }
+    .data-table tr:nth-child(even):hover {
+        background: #f0f0f0;
+    }
+    .id-badge {
+        background: #007bff;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .seq-badge {
+        background: #28a745;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    /* Пагинация */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-top: 2px solid #e9ecef;
+    }
+    .page-btn {
+        padding: 8px 16px;
+        border: 1px solid #dee2e6;
+        background: white;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    .page-btn:hover:not(:disabled) {
+        background: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+    .page-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .page-btn.active {
+        background: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+    .page-info {
+        color: #666;
+        font-size: 14px;
+    }
+
+    /* Лог */
+    .log-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    .log-header {
+        padding: 15px 20px;
+        background: #1e1e1e;
+        color: white;
+        font-weight: 600;
+    }
+    #log {
+        height: 200px;
+        overflow-y: auto;
+        padding: 15px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+        background: #1e1e1e;
+        color: #00ff00;
+    }
+    .log-error { color: #ff4444 !important; }
+    .log-success { color: #00ff00 !important; }
+    .log-info { color: #00bfff !important; }
+    .log-warning { color: #ffaa00 !important; }
+
+    /* Индикатор загрузки */
+    .loading-indicator {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #007bff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .stats { grid-template-columns: repeat(2, 1fr); }
+        .header { flex-direction: column; gap: 15px; }
+        .data-table { font-size: 14px; }
+        .data-table th, .data-table td { padding: 8px 10px; }
+    }
+  </style>
+</head>
+<body>
+<div class="header">
+  <h1>🚀 Vert.x Stream Demo</h1>
+  <div>
+    <button id="btnStart" class="btn btn-primary" disabled>▶ Начать загрузку</button>
+    <button id="btnClear" class="btn btn-secondary" disabled>🗑 Очистить БД</button>
+  </div>
+</div>
+
+<div class="status" id="status">
+  <span class="loading-indicator"></span>
+  Проверка подключения к серверу...
+</div>
+
+<div class="progress-container">
+  <div class="progress-bar">
+    <div class="progress-fill" id="progressFill">0%</div>
+  </div>
+  <div style="display: flex; justify-content: space-between; font-size: 13px; color: #666;">
+    <span>Загрузка данных из стрима</span>
+    <span id="progressText">0 / 0 записей</span>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-value" id="statReceived">0</div>
+    <div class="stat-label">📥 Получено из стрима</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="statSaved">0</div>
+    <div class="stat-label">💾 Сохранено в IDB</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="statInTable">0</div>
+    <div class="stat-label">📊 Отображено в таблице</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="statErrors">0</div>
+    <div class="stat-label">⚠️ Ошибок</div>
+  </div>
+</div>
+
+<!-- Таблица с данными -->
+<div class="table-container">
+  <div class="table-header">
+    <span class="table-title">📋 Загруженные данные</span>
+    <span id="tableInfo" style="color: #666; font-size: 14px;">Ожидание данных...</span>
+  </div>
+  <table class="data-table">
+    <thead>
+    <tr>
+      <th style="width: 80px;">ID</th>
+      <th style="width: 80px;">№</th>
+      <th>Наименование</th>
+      <th style="width: 150px;">Время загрузки</th>
+    </tr>
+    </thead>
+    <tbody id="tableBody">
+    <tr>
+      <td colspan="4" style="text-align: center; padding: 40px; color: #999;">
+        Данные не загружены. Нажмите "Начать загрузку"
+      </td>
+    </tr>
+    </tbody>
+  </table>
+  <div class="pagination" id="pagination">
+    <button class="page-btn" id="btnFirst" disabled>⏮ Первая</button>
+    <button class="page-btn" id="btnPrev" disabled>◀ Пред.</button>
+    <span class="page-info" id="pageInfo">Страница 0 из 0</span>
+    <button class="page-btn" id="btnNext" disabled>След. ▶</button>
+    <button class="page-btn" id="btnLast" disabled>Последняя ⏭</button>
+  </div>
+</div>
+
+<!-- Лог операций -->
+<div class="log-container">
+  <div class="log-header">📝 Лог операций</div>
+  <div id="log"></div>
+</div>
+
+<script>
+  // ==================== КОНФИГУРАЦИЯ ====================
+  const DB_NAME = 'VertxStreamDB';
+  const STORE_NAME = 'items';
+  const PAGE_SIZE = 50;
+
+  // ⭐ ДИНАМИЧЕСКОЕ КОЛИЧЕСТВО ЗАПИСЕЙ (будет получено с сервера)
+  let EXPECTED_RECORDS = 0;
+
+  // ==================== СОСТОЯНИЕ ====================
+  let db = null;
+  let allItems = []; // Кэш всех загруженных элементов в памяти
+  let currentPage = 1;
+  let totalPages = 0;
+  let isStreaming = false;
+  let streamStartTime = null;
+  let serverRecordCount = 0; // Количество записей на сервере
+
+  let stats = {
+      received: 0,
+      saved: 0,
+      errors: 0,
+      inTable: 0
+  };
+
+  // ==================== INDEXED DB ====================
+  async function initDB() {
+      return new Promise((resolve, reject) => {
+          const request = indexedDB.open(DB_NAME, 1);
+          request.onupgradeneeded = (e) => {
+              const database = e.target.result;
+              if (!database.objectStoreNames.contains(STORE_NAME)) {
+                  const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                  store.createIndex('sequenceNumber', 'sequenceNumber', { unique: false });
+                  store.createIndex('name', 'name', { unique: false });
+                  store.createIndex('loadedAt', 'loadedAt', { unique: false });
+              }
+          };
+          request.onsuccess = () => { db = request.result; resolve(db); };
+          request.onerror = () => reject(request.error);
+      });
+  }
+
+  async function saveBatch(items) {
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          items.forEach(item => store.put(item));
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  }
+
+  async function getAllItems() {
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const request = store.getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  }
+
+  async function countRecords() {
+      return new Promise((resolve) => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const request = store.count();
+          request.onsuccess = () => resolve(request.result);
+      });
+  }
+
+  async function clearDB() {
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          store.clear();
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  }
+
+  // ==================== ТАБЛИЦА И ПАГИНАЦИЯ ====================
+  function renderTablePage(page) {
+      const start = (page - 1) * PAGE_SIZE;
+      const end = Math.min(start + PAGE_SIZE, allItems.length);
+      const pageItems = allItems.slice(start, end);
+
+      const $tbody = $('#tableBody');
+      $tbody.empty();
+
+      if (pageItems.length === 0) {
+          $tbody.html(`
+              <tr>
+                  <td colspan="4" style="text-align: center; padding: 40px; color: #999;">
+                      Нет данных для отображения
+                  </td>
+              </tr>
+          `);
+          return;
+      }
+
+      pageItems.forEach(item => {
+          const loadedTime = item.loadedAt ?
+              new Date(item.loadedAt).toLocaleTimeString() : 'N/A';
+
+          const row = `
+              <tr>
+                  <td><span class="id-badge">${item.id}</span></td>
+                  <td><span class="seq-badge">${item.sequenceNumber}</span></td>
+                  <td>${escapeHtml(item.name)}</td>
+                  <td style="color: #666; font-size: 13px;">${loadedTime}</td>
+              </tr>
+          `;
+          $tbody.append(row);
+      });
+
+      stats.inTable = pageItems.length;
+      updateStats();
+      updatePagination();
+      updateTableInfo();
+  }
+
+  function updatePagination() {
+      totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+      currentPage = Math.min(currentPage, totalPages) || 1;
+
+      $('#pageInfo').text(`Страница ${totalPages > 0 ? currentPage : 0} из ${totalPages}`);
+
+      $('#btnFirst').prop('disabled', currentPage <= 1);
+      $('#btnPrev').prop('disabled', currentPage <= 1);
+      $('#btnNext').prop('disabled', currentPage >= totalPages);
+      $('#btnLast').prop('disabled', currentPage >= totalPages);
+  }
+
+  function updateTableInfo() {
+      const start = (currentPage - 1) * PAGE_SIZE + 1;
+      const end = Math.min(currentPage * PAGE_SIZE, allItems.length);
+      $('#tableInfo').text(`Показано ${allItems.length > 0 ? start : 0}-${end} из ${allItems.length} записей`);
+  }
+
+  function goToPage(page) {
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderTablePage(currentPage);
+      log(`Переход на страницу ${currentPage}`, 'info');
+  }
+
+  function refreshCurrentPage() {
+      if (allItems.length > 0) {
+          renderTablePage(currentPage);
+      }
+  }
+
+  // ==================== UI HELPERS ====================
+  function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+  }
+
+  function updateStats() {
+      $('#statReceived').text(stats.received.toLocaleString());
+      $('#statSaved').text(stats.saved.toLocaleString());
+      $('#statInTable').text(stats.inTable.toLocaleString());
+      $('#statErrors').text(stats.errors.toLocaleString());
+
+      // ⭐ ПРОГРЕСС ОТ ДИНАМИЧЕСКОГО EXPECTED_RECORDS
+      const progress = EXPECTED_RECORDS > 0 ?
+          Math.min((stats.received / EXPECTED_RECORDS) * 100, 100) : 0;
+      $('#progressFill').css('width', progress + '%').text(Math.round(progress) + '%');
+      $('#progressText').text(`${stats.received.toLocaleString()} / ${EXPECTED_RECORDS.toLocaleString()} записей`);
+  }
+
+  function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const logClass = type === 'error' ? 'log-error' :
+                      type === 'success' ? 'log-success' :
+                      type === 'warning' ? 'log-warning' : 'log-info';
+      $('#log').append(`<div class="${logClass}">[${timestamp}] ${message}</div>`);
+      $('#log').scrollTop($('#log')[0].scrollHeight);
+  }
+
+  function setLoadingState(loading) {
+      isStreaming = loading;
+      const $btn = $('#btnStart');
+      if (loading) {
+          $btn.prop('disabled', true)
+              .html('<span class="loading-indicator"></span> Загрузка...');
+          streamStartTime = Date.now();
+      } else {
+          const duration = streamStartTime ?
+              ((Date.now() - streamStartTime) / 1000).toFixed(2) : 0;
+          $btn.prop('disabled', false)
+              .html(`✅ Загружено (${duration}с)`);
+      }
+      $('#btnClear').prop('disabled', loading);
+  }
+
+  // ==================== ПРОВЕРКА СЕРВЕРА (ПОЛУЧЕНИЕ EXPECTED_RECORDS) ====================
+  async function checkServerStatus() {
+      try {
+          log('📡 Подключение к серверу...', 'info');
+          const resp = await fetch('/api/v1/vertx-stream/status');
+          const data = await resp.json();
+
+          if (data.status === 'ok') {
+              // ⭐ УСТАНАВЛИВАЕМ ДИНАМИЧЕСКОЕ КОЛИЧЕСТВО ЗАПИСЕЙ
+              serverRecordCount = data.records || 0;
+              EXPECTED_RECORDS = serverRecordCount;
+
+              $('#status').html(`
+                  ✅ Сервер подключен.
+                  Записей в БД: <strong>${EXPECTED_RECORDS.toLocaleString()}</strong> |
+                  Ожидаем загрузку: <strong>${EXPECTED_RECORDS.toLocaleString()}</strong>
+              `);
+              log(`🖥 Сервер запущен. В БД: ${EXPECTED_RECORDS.toLocaleString()} записей`, 'success');
+
+              // Активируем кнопки
+              $('#btnStart').prop('disabled', false);
+              $('#btnClear').prop('disabled', false);
+
+              // Проверяем есть ли данные в локальной БД
+              await initDB();
+              const localCount = await countRecords();
+              if (localCount > 0) {
+                  log(`📂 Найдено ${localCount.toLocaleString()} записей в локальной БД`, 'warning');
+                  allItems = await getAllItems();
+                  if (allItems.length > 0) {
+                      renderTablePage(1);
+                      log('📊 Таблица заполнена данными из локальной БД', 'success');
+
+                      // ⭐ Обновляем прогресс от локальных данных
+                      const localProgress = Math.min((localCount / EXPECTED_RECORDS) * 100, 100);
+                      $('#progressFill').css('width', localProgress + '%').text(Math.round(localProgress) + '%');
+                      $('#progressText').text(`${localCount.toLocaleString()} / ${EXPECTED_RECORDS.toLocaleString()} записей`);
+                  }
+              } else {
+                  log('📂 Локальная БД пуста. Готов к загрузке.', 'info');
+              }
+          } else {
+              throw new Error('Server returned error status');
+          }
+      } catch (e) {
+          $('#status').html('❌ Сервер недоступен. Убедитесь что запущен Vert.x');
+          log(`⚠️ Не удалось подключиться к серверу: ${e.message}`, 'error');
+          $('#btnStart').prop('disabled', true);
+          $('#btnClear').prop('disabled', true);
+      }
+  }
+
+  // ==================== СТРИМИНГ ====================
+  async function startStreaming() {
+      // ⭐ ПРОВЕРКА: есть ли данные для загрузки
+      if (EXPECTED_RECORDS === 0) {
+          log('⚠️ На сервере нет данных для загрузки', 'warning');
+          return;
+      }
+
+      $('#tableBody').html(`
+          <tr>
+              <td colspan="4" style="text-align: center; padding: 40px;">
+                  <span class="loading-indicator"></span>
+                  <span style="color: #666;">Подключение к стриму...</span>
+              </td>
+          </tr>
+      `);
+
+      setLoadingState(true);
+      stats = { received: 0, saved: 0, errors: 0, inTable: 0 };
+      allItems = [];
+      currentPage = 1;
+      updateStats();
+      $('#log').empty();
+
+      try {
+          log('Инициализация IndexedDB...', 'info');
+          await initDB();
+          await clearDB();
+          log('IndexedDB очищен и готов', 'success');
+
+          log(`📡 Подключение к стриму /api/v1/vertx-stream/stream (ожидаем ~${EXPECTED_RECORDS.toLocaleString()} записей)...`, 'info');
+          const response = await fetch('/api/v1/vertx-stream/stream');
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          if (!response.body) throw new Error('ReadableStream не поддерживается браузером');
+
+          // ⭐ Читаем ожидаемое количество из заголовков (если сервер отправляет)
+          const headerCount = response.headers.get('X-Expected-Count');
+          if (headerCount) {
+              EXPECTED_RECORDS = parseInt(headerCount, 10);
+              log(`📊 Уточнено ожидаемое количество: ${EXPECTED_RECORDS.toLocaleString()} (из заголовка)`, 'info');
+              updateStats();
+          }
+
+          log('📡 Получение данных из стрима...', 'info');
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+
+          let buffer = '';
+          let batch = [];
+          const BATCH_SIZE = 100;
+          let firstPageLoaded = false;
+
+          while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop();
+
+              for (const line of lines) {
+                  if (!line.trim()) continue;
+
+                  stats.received++;
+
+                  try {
+                      const item = JSON.parse(line);
+                      item.loadedAt = Date.now(); // Метка времени загрузки
+                      batch.push(item);
+                      allItems.push(item); // Добавляем в кэш памяти
+
+                      // ⭐ ПЕРВЫЕ 50 ЗАПИСЕЙ - ПОКАЗЫВАЕМ СРАЗУ
+                      if (!firstPageLoaded && allItems.length >= PAGE_SIZE) {
+                          renderTablePage(1);
+                          firstPageLoaded = true;
+                          log(`📊 Первая страница (${PAGE_SIZE} записей) отображена!`, 'success');
+                      }
+
+                      // Сохраняем батчами в IDB
+                      if (batch.length >= BATCH_SIZE) {
+                          await saveBatch(batch);
+                          stats.saved += batch.length;
+                          batch = [];
+
+                          // Обновляем таблицу если уже загружена первая страница
+                          if (firstPageLoaded && currentPage === 1) {
+                              refreshCurrentPage();
+                          }
+
+                          updateStats();
+                      }
+                  } catch (e) {
+                      stats.errors++;
+                      log(`❌ Ошибка парсинга: ${e.message}`, 'error');
+                      updateStats();
+                  }
+              }
+
+              // Прогресс каждые 10% или каждые 500 записей
+              const progressPercent = Math.round((stats.received / EXPECTED_RECORDS) * 100);
+              if (progressPercent % 10 === 0 && stats.received > 0) {
+                  log(`📥 Прогресс: ${progressPercent}% (${stats.received.toLocaleString()} / ${EXPECTED_RECORDS.toLocaleString()})`, 'info');
+              }
+          }
+
+          // Обработка остатка в буфере
+          if (buffer.trim()) {
+              try {
+                  const item = JSON.parse(buffer);
+                  item.loadedAt = Date.now();
+                  batch.push(item);
+                  allItems.push(item);
+                  stats.received++;
+              } catch (e) {
+                  stats.errors++;
+              }
+          }
+
+          // Финальное сохранение
+          if (batch.length > 0) {
+              await saveBatch(batch);
+              stats.saved += batch.length;
+          }
+
+          // Финальное обновление таблицы
+          if (allItems.length > 0 && !firstPageLoaded) {
+              renderTablePage(1);
+          } else {
+              refreshCurrentPage();
+          }
+
+          updateStats();
+          const finalCount = await countRecords();
+
+          const duration = ((Date.now() - streamStartTime) / 1000).toFixed(2);
+
+          // ⭐ ФИНАЛЬНАЯ СТАТИСТИКА С ДИНАМИЧЕСКИМИ ЗНАЧЕНИЯМИ
+          log(`✅ ЗАВЕРШЕНО!`, 'success');
+          log(`   • Загружено: ${stats.received.toLocaleString()} записей`, 'success');
+          log(`   • Сохранено в IDB: ${stats.saved.toLocaleString()} записей`, 'success');
+          log(`   • Ожидалось: ${EXPECTED_RECORDS.toLocaleString()} записей`, 'info');
+          log(`   • Время: ${duration}с`, 'info');
+          log(`   • Скорость: ${Math.round(stats.received / duration)} записей/сек`, 'info');
+          log(`📊 Всего страниц: ${Math.ceil(finalCount / PAGE_SIZE)}`, 'info');
+
+          // Проверка на расхождение
+          if (stats.received !== EXPECTED_RECORDS) {
+              log(`⚠️ Внимание: получено ${stats.received} вместо ожидаемых ${EXPECTED_RECORDS}`, 'warning');
+          }
+
+      } catch (err) {
+          log(`❌ Критическая ошибка: ${err.message}`, 'error');
+          console.error(err);
+      } finally {
+          setLoadingState(false);
+      }
+  }
+
+  // ==================== СОБЫТИЯ ====================
+  $(document).ready(() => {
+      // Инициализация - получение EXPECTED_RECORDS с сервера
+      checkServerStatus();
+
+      // Кнопки управления
+      $('#btnStart').click(startStreaming);
+
+      $('#btnClear').click(async () => {
+          if (!confirm('Вы уверены? Это удалит все данные из локальной БД.')) return;
+
+          try {
+              await initDB();
+              await clearDB();
+              allItems = [];
+              currentPage = 1;
+              stats = { received: 0, saved: 0, errors: 0, inTable: 0 };
+              updateStats();
+              renderTablePage(1);
+
+              // ⭐ Сброс прогресса
+              $('#progressFill').css('width', '0%').text('0%');
+              $('#progressText').text(`0 / ${EXPECTED_RECORDS.toLocaleString()} записей`);
+
+              log('🗑 Локальная БД очищена', 'warning');
+          } catch (e) {
+              log(`Ошибка очистки: ${e.message}`, 'error');
+          }
+      });
+
+      // Пагинация
+      $('#btnFirst').click(() => goToPage(1));
+      $('#btnPrev').click(() => goToPage(currentPage - 1));
+      $('#btnNext').click(() => goToPage(currentPage + 1));
+      $('#btnLast').click(() => goToPage(totalPages));
+
+      // Обновление страницы при изменении размера окна
+      let resizeTimeout;
+      $(window).resize(() => {
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(() => {
+              if (allItems.length > 0) {
+                  refreshCurrentPage();
+              }
+          }, 200);
+      });
+
+      log('🚀 Приложение готово к работе', 'success');
+  });
+</script>
+</body>
+</html>
