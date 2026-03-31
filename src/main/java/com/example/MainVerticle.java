@@ -98,9 +98,23 @@ public class MainVerticle extends VerticleBase {
     Promise<Void> promise = Promise.promise();
     Router router = Router.router(vertx);
 
+    router.route().handler(ctx->{
+      var headers = ctx.request().headers().toString();
+      JsonObject resp = new JsonObject().put("headers", headers);
+      logger.info("Incoming request: {}", ctx.request().uri());
+      ctx.next();
+    });
+
     // Статика (клиент)
     router.route("/").handler(StaticHandler.create("webroot"));
     router.route("/api/v1/vertx-stream/").handler(StaticHandler.create("webroot"));
+
+    router.route().last().handler(ctx->{
+      var headers = ctx.request().headers().toString();
+      var route =  ctx.request().uri();
+      logger.error("Route missing: {} \nHeaders: {}", route, headers);
+      ctx.response().setStatusCode(404).end("#Path: " + route +"\n#Req headers:\n"+ headers);
+    });
 
 
     // Стриминг эндпоинт
