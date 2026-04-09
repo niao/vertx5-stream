@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package com.example;
+
+option java_multiple_files = true;
+//option java_package = "com.example.grpc";
+//option java_outer_classname = "ItemProto";
+
+// Описание структуры Item — аналог ItemDto в Java
+message Item {
+  int64 id = 1;
+  string name = 2;
+  int32 sequence_number = 3;  // snake_case для соответствия Protobuf style
+}
+
+// Пояснение:
+//
+// Используется паттерн "Length-Delimited Protobuf Streams":
+//   [varint: длина_байт][байты_данных][varint: длина_байт][байты_данных]...
+//
+// Пример на стороне клиента (Java + Vert.x):
+//
+// ByteBuf buf = ...;
+// int length = buf.readVarInt();  // или CodedInputStream.readRawVarint32()
+// byte[] data = new byte[length];
+// buf.readBytes(data);
+// Item item = Item.parseFrom(data);

@@ -1,8 +1,9 @@
+```markdown README.md
 # Vert.x 5 Streaming Service
 
 Реактивное приложение на **Vert.x 5**, которое:
 - Инициализирует PostgreSQL таблицу с тестовыми данными.
-- Потоково отдаёт данные в формате **ND-JSON** через HTTP.
+- Потоково отдаёт данные в формате **ND-JSON**, **Protobuf** и **GZIP** через HTTP.
 - Поддерживает асинхронную работу и низкое потребление памяти.
 
 Используется для демонстрации потоковой передачи больших объёмов данных без загрузки в память.
@@ -14,14 +15,27 @@
 | Эндпоинт | Метод | Описание |
 |--------|-------|--------|
 | `/api/v1/vertx-stream/stream` | `GET` | Потоковый вывод записей в формате ND-JSON |
+| `/api/v1/vertx-stream/stream-protobuf` | `GET` | Потоковый вывод в формате Length-Delimited Protobuf (бинарный) |
+| `/api/v1/vertx-stream/stream-protobuf-gzip` | `GET` | То же, что выше, но упаковано в GZIP для экономии трафика |
 | `/api/v1/vertx-stream/status` | `GET` | Статус сервиса (всегда 200 OK) |
 
-Формат данных в стриме:
+Формат данных в стримах:
+
+### ND-JSON
 ```json
 {"id":1,"name":"Item_1","sequenceNumber":1}
 {"id":2,"name":"Item_2","sequenceNumber":2}
 ...
 ```
+
+### Protobuf (Length-Delimited)
+Бинарный поток:
+```
+[varint: длина][protobuf][varint: длина][protobuf]...
+```
+
+### GZIP + Protobuf
+Тот же бинарный поток, но сжатый с помощью GZIP → идеален для передачи больших объёмов.
 
 ---
 
@@ -90,6 +104,17 @@ curl http://localhost:8080/api/v1/vertx-stream/stream
 {"id":1,"name":"Item_1","sequenceNumber":1}
 {"id":2,"name":"Item_2","sequenceNumber":2}
 ...
+```
+
+Запрос Protobuf-потока:
+```bash
+curl http://localhost:8080/api/v1/vertx-stream/stream-protobuf --output stream.pb
+```
+
+Запрос сжатого GZIP-потока:
+```bash
+curl http://localhost:8080/api/v1/vertx-stream/stream-protobuf-gzip --output stream.pb.gz
+gunzip -c stream.pb.gz | hexdump -C
 ```
 
 Проверка статуса:
@@ -175,7 +200,7 @@ src/
 
 - ✅ Non-root пользователь в Docker.
 - ✅ Healthcheck.
-- ✅ ND-JSON для потоковой передачи.
+- ✅ ND-JSON / Protobuf / GZIP для потоковой передачи.
 - ✅ Graceful shutdown.
 - ✅ Конфигурация через env.
 - ✅ Testcontainers (для тестов).
@@ -185,3 +210,4 @@ src/
 ## 📄 Лицензия
 
 MIT
+```
