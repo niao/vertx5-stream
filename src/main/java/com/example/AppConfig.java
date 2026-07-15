@@ -7,7 +7,11 @@ public record AppConfig(
   String dbUser,
   String dbPassword,
   int httpPort,
-  int totalRecords
+  int totalRecords,
+  String minioEndpoint,
+  String minioAccessKey,
+  String minioSecretKey,
+  String minioBucket
 ) {
 
   public static AppConfig load() {
@@ -26,8 +30,18 @@ public record AppConfig(
       Integer.parseInt(System.getenv("HTTP_PORT")) : 8080;
     int totalRecords = System.getenv("TOTAL_RECORDS") != null ?
       Integer.parseInt(System.getenv("TOTAL_RECORDS")) : 3500;
+    String minioEndpoint = System.getenv("MINIO_ENDPOINT") != null ?
+      System.getenv("MINIO_ENDPOINT") : "http://localhost:9009";
+    String minioAccessKey = System.getenv("MINIO_ACCESS_KEY") != null ?
+      System.getenv("MINIO_ACCESS_KEY") : "minioadmin";
+    String minioSecretKey = System.getenv("MINIO_SECRET_KEY") != null ?
+      System.getenv("MINIO_SECRET_KEY") : "minioadmin";
+    String minioBucket = System.getenv("MINIO_BUCKET") != null ?
+      System.getenv("MINIO_BUCKET") : "streams";
+
 
     // Возвращаем новый экземпляр записи
-    return new AppConfig(dbHost, dbPort, dbName, dbUser, dbPassword, httpPort, totalRecords);
+    return new AppConfig(dbHost, dbPort, dbName, dbUser, dbPassword, httpPort, totalRecords,
+      minioEndpoint, minioAccessKey, minioSecretKey, minioBucket);
   }
 }
